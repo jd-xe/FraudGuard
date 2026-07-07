@@ -33,7 +33,7 @@ jobs:
       - name: Configurar Node.js (Newman)
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Instalar dependencias globales
         run: |
@@ -52,10 +52,13 @@ jobs:
         # TRUCO SDET: Corremos la API y los test en el mismo paso para que GitHub no apague el servidor.
         run: |
           echo "Iniciando la API en segundo plano..."
-          dotnet run --project FraudGuard.API &
+          dotnet run --project FraudGuard.API --urls="http://localhost:5053" &
           
-          echo "Esperando 10 segundos para que el servidor despierte..."
+          echo "Esperando 10 segundos..."
           sleep 10
           
+          echo "Inyectando Golden Data para QA..."
+          curl -X POST http://localhost:5053/api/testing/seed
+
           echo "Ejecutando pruebas automatizadas de Postman con Newman..."
           newman run postman_collection.json
