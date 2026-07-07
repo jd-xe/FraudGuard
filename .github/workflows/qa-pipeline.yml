@@ -2,58 +2,60 @@ name: QA Automation Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
   pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
-    # 1. EL ENTORNO: Le pedimos a GitHub que levante un Docker con SQL Server
-    # para que nuestra API tenga dónde conectarse en la nube.
     services:
       sqlserver:
         image: mcr.microsoft.com/mssql/server:2022-latest
         env:
-          ACCEPT_EULA: Y
-          MSSQL_SA_PASSWORD: SuperSecretQA_Password123!
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "SuperSecretQA_Password123!"
         ports:
-          - 1433:1433
+          - "1433:1433"
 
     steps:
-    - name: 📦 Descargar el código
-      uses: actions/checkout@v4
+      - name: Descargar el codigo
+        uses: actions/checkout@v4
 
-    - name: ⚙️ Configurar .NET 10
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '10.0.x'
+      - name: Configurar .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
 
-    - name: 🟢 Configurar Node.js (Para Newman)
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
+      - name: Configurar Node.js (Newman)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-    - name: 🛠️ Instalar dependencias globales
-      run: |
-        npm install -g newman
-        dotnet tool install --global dotnet-ef
+      - name: Instalar dependencias globales
+        run: |
+          npm install -g newman
+          dotnet tool install --global dotnet-ef
 
-    - name: 🧪 Fase 1: Pruebas Unitarias e Integración (C#)
-      run: dotnet test
+      - name: Fase 1 - Pruebas Unitarias e Integracion
+        run: dotnet test
 
-    - name: 🗄️ Preparar Base de Datos (Migraciones)
-      # Exportamos el PATH para que Ubuntu en la nube reconozca dotnet-ef
-      run: |
-        export PATH="$PATH:$HOME/.dotnet/tools"
-        dotnet ef database update --project FraudGuard.Infrastructure --startup-project FraudGuard.API
+      - name: Preparar Base de Datos SQL Server
+        run: |
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          dotnet ef database update --project FraudGuard.Infrastructure --startup-project FraudGuard.API
 
-    - name: 🚀 Levantar API en segundo plano
-      # El símbolo '&' al final hace que la API corra sin bloquear la terminal
-      run: |
-        dotnet run --project FraudGuard.API &
-        sleep 10 # Le damos 10 segundos para que inicie y abra el puerto 5000
-
-    - name: 🎯 Fase 2: Pruebas E2E de Caja Negra (Newman)
-      run: newman run postman_collection.json
+      - name: Fase 2 - Pruebas E2E (API + Newman)
+        # TRUCO SDET: Corremos la API y los test en el mismo paso para que GitHub no apague el servidor.
+        run: |
+          echo "Iniciando la API en segundo plano..."
+          dotnet run --project FraudGuard.API &
+          
+          echo "Esperando 10 segundos para que el servidor despierte..."
+          sleep 10
+          
+          echo "Ejecutando pruebas automatizadas de Postman con Newman..."
+          newman run postman_collection.json
