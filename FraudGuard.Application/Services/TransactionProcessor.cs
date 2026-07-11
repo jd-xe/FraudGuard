@@ -10,15 +10,18 @@ public class TransactionProcessor
 {
     private readonly IEnumerable<IFraudRule> _rules;
     private readonly ITransactionRepository _transactionRepository;
+    private readonly IAuditRepository _auditRepository;
 
     // INYECCIÓN MÁGICA: Al pedir un IEnumerable<IFraudRule>, .NET nos entregará
     // automáticamente una lista con todas las reglas que hayamos creado.
     public TransactionProcessor(
         IEnumerable<IFraudRule> rules, 
-        ITransactionRepository transactionRepository)
+        ITransactionRepository transactionRepository,
+        IAuditRepository auditRepository)
     {
         _rules = rules;
         _transactionRepository = transactionRepository;
+        _auditRepository = auditRepository;
     }
 
     public async Task<Transaction> ProcessAsync(ProcessTransactionRequest request)
@@ -33,7 +36,7 @@ public class TransactionProcessor
             IpAddress = request.IpAddress,
             OriginCountry = request.OriginCountry,
             TransactionDate = DateTime.UtcNow,
-            Status = TransactionStatus.Approved // Asumimos inocencia inicial
+            Status = TransactionStatus.Approved
         };
 
         // 2. Ejecutar todas las reglas de fraude dinámicamente
@@ -43,10 +46,17 @@ public class TransactionProcessor
 
             if (!isValid)
             {
-                // Si la regla dice que es Sospechosa o Rechazada, cambiamos el estado
                 transaction.Status = reason!.Contains("Rechazada") ? TransactionStatus.Rejected : TransactionStatus.Suspicious;
                 
-                // (Opcional por ahora: Aquí se guardaría el AuditLog)
+                var auditLog = new AuditLog
+                {
+                    Id = Guid.NewGuid(),
+                    TransactionId = transaction.Id,
+                    FailedRuleName = rule.GetType().Name,
+                    Message = reason,
+                    LoggedAt = DateTime.UtcNow
+                };
+                await _auditRepository.AddAsync(auditLog);
                 
                 break; // Detenemos la evaluación si ya falló una regla
             }

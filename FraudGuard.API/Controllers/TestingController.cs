@@ -28,8 +28,10 @@ public class TestingController : ControllerBase
         // 2. GOLDEN DATA: Insertar los datos exactos que espera Postman/Newman
         var qaUser = new User { Id = Guid.Parse("3fa85f64-5717-4562-b3fc-2c963f66afa6"), CountryOfResidence = "PE" };
         var qaMerchant = new Merchant { Id = Guid.Parse("3fa85f64-5717-4562-b3fc-2c963f66afa6"), Name = "QA Automation Co", IsActive = true };
+        var badIp = new BlockedEntity { Id = Guid.NewGuid(), Value = "99.99.99.99", BlockedAt = DateTime.UtcNow };
         await _context.Users.AddAsync(qaUser);
         await _context.Merchants.AddAsync(qaMerchant);
+        await _context.BlockedEntities.AddAsync(badIp);
 
         // 3. Bogus: Generar 50 usuarios falsos con países aleatorios
         var userFaker = new Faker<User>()

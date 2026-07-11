@@ -33,6 +33,7 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IBlockedEntityRepository, BlockedEntityRepository>();
+builder.Services.AddScoped<IAuditRepository, AuditRepository>();
 
 // 4. Inyección del Orquestador
 builder.Services.AddScoped<TransactionProcessor>();
